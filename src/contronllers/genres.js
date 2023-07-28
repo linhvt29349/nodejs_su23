@@ -1,3 +1,4 @@
+import Joi from "joi"
 const movies = [
     {
         "id": 1,
@@ -76,14 +77,94 @@ const movies = [
         "thumbnail": "https://upload.wikimedia.org/wikipedia/en/a/a1/Three_Christs_poster.jpg",
     }
 ]
+const html = movies.map(product => product.cast).flat();
+let obj = {};
+Array.from(new Set(html)).map((element, index) => {
+    obj[index] = { id: Date.now() + index, name: element }
+});
+obj = Object.entries(obj).map(product => product.slice(1))
+const genres = obj.flat()
 
+const shima = Joi.object({
+    name: Joi.string().trim().required().messages({
+        "string.empty": "{#label} Required field!"
+    })
+})
 export const getGenres = (req, res) => {
-    const html = movies.map(product => product.genres);
-    const name = html.join(',').split(',')
-    let obj = {};
-    Array.from(new Set(name)).map((element, index) => {
-        return obj[`key${index}`] = { id: Date.now(), name: element }
-    });
-    res.send(obj)
+    if (genres) {
+        res.status(200).send(genres)
+    } else {
+        res.status(500).send({
+            message: 'Server error!'
+        })
+    }
+
     res.end()
+}
+export const getOneGenres = (req, res) => {
+    const id = Number(req.params.id);
+    if (id) {
+        const name1 = genres.find(element => element.id === id)
+        res.status(200).send(name1)
+    } else {
+        res.status(404).send({
+            message: 'The genre does not exist!'
+        })
+    }
+}
+export const addGenres = (req, res) => {
+    const data = req.body
+    const { error } = shima.validate(data, { abortEarly: false })
+    const nameSame = genres.findIndex(item => item.name === req.body.name);
+    if (error) {
+        res.status(400).send({
+            "message": error.details[0].message
+        })
+    } else if (nameSame !== -1) {
+        res.status(404).send({
+            "message": 'The genre already exists!'
+        })
+    } else {
+        genres.push({ ...data, id: Date.now() })
+        res.status(201).send({
+            message: 'The genre was added successfully!',
+            data: genres[genres.length - 1]
+        })
+    }
+
+}
+export const removeGenres = (req, res) => {
+    const id = Number(req.params.id)
+    const indexRemove = genres.findIndex(element => element.id === id)
+    if (indexRemove > 0) {
+        genres.splice(indexRemove, 1)
+        res.status(200).send({
+            "message": "The genre was deleted successfully!"
+        })
+    } else {
+        res.status(404).send({
+            "message": "The genre was not exists!"
+        })
+    }
+}
+export const updateGenres = (req, res) => {
+    const id = Number(req.params.id)
+    const data = req.body
+    const { error } = shima.validate(data, { abortEarly: false })
+    const index = genres.findIndex(element => element.id === id)
+    if (error) {
+        res.status(400).send({
+            message: error.details[0].message
+        })
+    } else if (index < 0) {
+        res.status(404).send({
+            message: 'The genre does not exist!'
+        })
+    } else {
+        genres[index] = { ...genres[index], ...data }
+        res.status(200).send({
+            message: 'The genre updated successfully!',
+            data: genres[genres.length - 1]
+        })
+    }
 }
