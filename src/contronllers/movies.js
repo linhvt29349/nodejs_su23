@@ -1,6 +1,7 @@
 import Joi from 'joi'
 import { __dirname } from '../server.js'
 import Movies from '../models/movies.js'
+import Category from '../models/categories.js'
 
 
 const productValidate = Joi.object({
@@ -14,105 +15,109 @@ const productValidate = Joi.object({
     cast: Joi.array().items(Joi.string().min(1)).required().messages({
         "string.empty": "{#label} Required field!"
     }),
-    genres: Joi.array().items(Joi.string()).required().messages({
-        "string.empty": "{#label} Required field!",
-    }),
     extract: Joi.string().trim().required().messages({
         "string.empty": "{#label} Required field!"
     }),
     href: Joi.string().trim(),
-    thumbnail: Joi.string().trim()
+    thumbnail: Joi.string().trim(),
+    category_id: Joi.array().items(Joi.string()).required().messages({
+        "string.empty": "{#label} Required field!",
+    })
 })
 export const getAllMovies = async (req, res) => {
     try {
-        const movies = await Movies.find()
-        res.status(200).send(movies)
+        const movies = await Movies.find().populate("category_id")
+        res.status(200).json(movies)
     } catch (error) {
-        res.status(500).send({
-            "message": "Server error! "
+        res.status(500).json({
+            message: "Server error! "
         })
     }
-
-    res.end()
 }
 export const addMovies = async (req, res) => {
     try {
-        const movies = await Movies.find()
-        const data = req.body;
-        const { error } = productValidate.validate(data, { abortEarly: false })
-        const nameSame = movies.findIndex(item => item.title === req.body.title);
+        const { error } = productValidate.validate(req.body, { abortEarly: false })
+        const nameSame = await Movies.findOne({ title: req.body.title })
         if (error) {
-            res.status(400).send({
+            res.status(400).json({
                 message: error.details?.map(e => e.message)
             })
-        } else if (nameSame !== -1) {
-            res.status(400).send({
-                "message": "The cast does exist!",
+            res.end()
+        }
+        if (nameSame) {
+            res.status(400).json({
+                "message": "The movie does exist!",
             })
             res.end()
-        } else {
-            const newMovie = await Movies.create(data)
-            res.status(201).send({
-                "message": "The movie was created successfully!",
-                data: newMovie
-            })
         }
+        const movie = await (await Movies.create(req.body)).populate("category_id")
+
+        // if (req.body.category_id) {
+        //     await Category.updateMany({ _id: req.body.category_id }, { $addToSet: { movie_id: movie._id } })
+        //     res.end()
+        // }
+        res.status(200).json({
+            massage: "The movie was created successfully!",
+            data: movie
+        })
+        res.end()
     } catch (err) {
-        res.status(500).send({
-            "message": "Server error! "
+        res.status(500).json({
+            message: "Server error!"
         })
     }
-    res.end();
+
 }
 export const updateMovies = async (req, res) => {
     try {
-        const movies = await Movies.find()
         const { id } = req.params;
-        const movieIndex = movies.findIndex(movie => movie.id === id);
         const { error } = productValidate.validate(req.body, { abortEarly: false })
-
-        if (error) {
-            res.status(400).send({
-                message: error.details?.map(e => e.message)
-            })
-        } else if (movieIndex < 0) {
-            res.status(404).send({
+        const idSame = await Movies.findOne({ _id: id })
+        if (!idSame) {
+            res.status(404).json({
                 "message": "The movie does not exist!"
             })
-        } else {
-            const movieUpdate = await Movies.findOneAndUpdate(id, req.body)
-            res.status(200).send({
-                message: 'The movie was updated successfully!',
-                data: movieUpdate
-            })
+            res.end()
         }
+        if (error) {
+            res.status(400).json({
+                message: error.details?.map(e => e.message)
+            })
+            res.end();
+        }
+        const movieUpdate = await Movies.findByIdAndUpdate(id, req.body)
+        res.status(200).json({
+            message: 'The movie was updated successfully!',
+            data: movieUpdate
+        })
+        res.end()
     } catch (error) {
-        res.status(500).send({
+        res.status(500).json({
             "message": "Server error! "
         })
     }
-
     res.end();
+
 }
 export const deleteMovie = async (req, res) => {
     try {
-        const movies = await Movies.find()
-        const { id } = req.params;
-        const movieIndex = movies.findIndex(movie => movie.id === id);
 
-        if (movieIndex !== -1) {
+        const { id } = req.params;
+        const movieIndex = await Movies.findById(id)
+
+        if (movieIndex) {
             const deleteMovie = await Movies.findByIdAndDelete(id)
-            res.status(200).send({
-                "message": "The movie was deleted successfully!"
+            res.status(200).json({
+                message: "The movie was deleted successfully!"
             })
         } else {
-            res.status(404).send({
-                "message": "The movie does not exist!"
+            res.status(404).json({
+                message: "The movie does not exist!"
             })
         }
     } catch (error) {
-        res.status(500).send({
-            "message": "Server error! "
+        res.status(500).json({
+            message: "Server error! "
         })
     }
     res.end();
@@ -120,17 +125,17 @@ export const deleteMovie = async (req, res) => {
 export const getMovie = async (req, res) => {
     try {
         const { id } = req.params;
-        if (id) {
-            const html = await Movies.findById(id);
-            res.status(200).send(html)
+        const html = await Movies.findById(id).populate("category_id");
+        if (html) {
+            res.status(200).json(html)
         } else {
-            res.status(404).send({
-                "message": "The movie does not exist!"
+            res.status(404).json({
+                message: "The movie does not exist!"
             })
         }
     } catch (error) {
-        res.status(500).send({
-            "message": "Server error! "
+        res.status(500).json({
+            message: "Server error! "
         })
     }
 
@@ -138,7 +143,7 @@ export const getMovie = async (req, res) => {
 }
 // export const getAddMovie = (req, res) => {
 //     const html = fs.readFileSync(path.join(__dirname, './pages/movies/add.html'), 'utf8')
-//     res.send(html)
+//     res.json(html)
 //     res.end()
 // }
 

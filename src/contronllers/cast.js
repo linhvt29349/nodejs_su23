@@ -7,7 +7,7 @@ const productValidate = Joi.object({
     })
 })
 export const getCastMovies = async (req, res) => {
-    const listCast = (await Movies.find()).map(product => product.cast.map(res => res)).flat()
+    const listCast = (await Movies.find({}, { "_id": 0, "cast": 1 })).map(product => product.cast.map(res => res)).flat()
     let obj = {};
     Array.from(new Set(listCast)).forEach((element, index) => {
         obj[index] = { id: Date.now() + index, name: element }

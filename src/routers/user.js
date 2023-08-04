@@ -1,7 +1,8 @@
 import { Router } from "express";
-import singup from "../contronllers/user.js";
+import { singin, singup } from "../contronllers/user.js";
 
 const router = Router();
 
-router.post('/', singup)
+router.post('/singup', singup)
+router.post('/singin', singin)
 export default router;
